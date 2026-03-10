@@ -1,0 +1,5 @@
+date,time,route,location,incident,min_delay,min_gap,vehicle
+2024-01-09,09:10,29,Dufferin St & Bloor St,Mechanical,6,8,4321
+2024-03-18,16:05,52,Lawrence Ave & Yonge St,Traffic,12,15,8765
+2024-05-03,18:55,36,Finch Ave & Jane St,Collision,28,33,2109
+2024-11-27,11:30,45,Kipling Ave & Dundas St,Weather,3,5,1357
