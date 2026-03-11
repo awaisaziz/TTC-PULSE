@@ -10,7 +10,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
 
-from src.data_loader import load_and_merge_data, load_multiple_files
+from src.data_loader import load_and_merge_data, load_multiple_uploads
 from src.eda_analysis import comparison_analysis, spatial_analysis
 from src.preprocessing import clean_and_transform
 from src.visualization import (
@@ -31,16 +31,8 @@ def load_default_data():
 
 @st.cache_data
 def load_uploaded_data(file_names: tuple[str, ...], file_bytes: tuple[bytes, ...]):
-    data_dir = ROOT / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-
-    temp_paths = []
-    for name, payload in zip(file_names, file_bytes):
-        path = data_dir / name
-        path.write_bytes(payload)
-        temp_paths.append(path)
-
-    raw = load_multiple_files(temp_paths)
+    uploads = list(zip(file_names, file_bytes))
+    raw = load_multiple_uploads(uploads)
     return clean_and_transform(raw)
 
 

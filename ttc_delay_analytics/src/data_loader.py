@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 from typing import Dict
 
@@ -41,8 +42,30 @@ OPTIONAL_COLUMNS = ["day", "direction", "vehicle"]
 
 def _normalize_column_name(col: str) -> str:
     """Normalize column names into snake_case and map aliases."""
-    normalized = col.strip().lower().replace(" ", "_")
+    normalized = col.strip().strip('"').lower().replace(" ", "_")
     return COLUMN_ALIASES.get(normalized, normalized)
+
+
+def _expand_single_column_delimited(df: pd.DataFrame) -> pd.DataFrame:
+    """Expand rows when a whole delimited record was read as one string column."""
+    if df.shape[1] != 1:
+        return df
+
+    only_col = str(df.columns[0])
+    delimiter = next((d for d in ("\t", ";", ",") if d in only_col), None)
+    if delimiter is None:
+        return df
+
+    header = [part.strip().strip('"') for part in only_col.split(delimiter)]
+    expanded = (
+        df.iloc[:, 0]
+        .astype(str)
+        .str.strip()
+        .str.strip('"')
+        .str.split(delimiter, expand=True)
+    )
+    expanded.columns = header[: expanded.shape[1]]
+    return expanded
 
 
 def _best_effort_standardize(df: pd.DataFrame) -> pd.DataFrame:
@@ -80,6 +103,7 @@ def _best_effort_standardize(df: pd.DataFrame) -> pd.DataFrame:
 def load_year_data(file_path: str | Path, year: int) -> pd.DataFrame:
     """Load a single year's file and return a standardized dataframe."""
     df = _read_csv_with_fallback(file_path)
+    df = _expand_single_column_delimited(df)
     df.columns = [_normalize_column_name(c) for c in df.columns]
 
     df = _best_effort_standardize(df)
@@ -143,6 +167,47 @@ def _read_csv_with_fallback(file_path: str | Path) -> pd.DataFrame:
     )
 
 
+def _read_csv_bytes_with_fallback(payload: bytes) -> pd.DataFrame:
+    """Read uploaded CSV bytes while handling encoding and parser issues."""
+    encodings = ("utf-8", "utf-8-sig", "cp1252", "latin1")
+    separators: tuple[str | None, ...] = (None, ",", "\t", ";")
+    attempted_errors: list[str] = []
+
+    for encoding in encodings:
+        for separator in separators:
+            sep_label = "auto" if separator is None else repr(separator)
+            try:
+                return pd.read_csv(
+                    BytesIO(payload),
+                    encoding=encoding,
+                    sep=separator,
+                    engine="python",
+                    on_bad_lines="error",
+                )
+            except (UnicodeDecodeError, pd.errors.ParserError) as exc:
+                attempted_errors.append(f"strict encoding={encoding}, sep={sep_label}: {exc}")
+
+    for encoding in encodings:
+        for separator in separators:
+            sep_label = "auto" if separator is None else repr(separator)
+            try:
+                return pd.read_csv(
+                    BytesIO(payload),
+                    encoding=encoding,
+                    sep=separator,
+                    engine="python",
+                    on_bad_lines="skip",
+                )
+            except (UnicodeDecodeError, pd.errors.ParserError) as exc:
+                attempted_errors.append(f"skip-bad-lines encoding={encoding}, sep={sep_label}: {exc}")
+
+    raise ValueError(
+        "Unable to parse uploaded data. "
+        f"Tried encodings={encodings} and delimiters=('auto', ',', '\\t', ';'). "
+        f"Last parser/decoder errors: {attempted_errors[-4:]}"
+    )
+
+
 def load_and_merge_data(data_dir: str | Path) -> pd.DataFrame:
     """Load TTC bus delay CSV files for 2023 and 2024 and combine them."""
     data_dir = Path(data_dir)
@@ -162,6 +227,7 @@ def load_multiple_files(file_paths: list[str | Path]) -> pd.DataFrame:
     for file_path in file_paths:
         path = Path(file_path)
         raw = _read_csv_with_fallback(path)
+        raw = _expand_single_column_delimited(raw)
         raw.columns = [_normalize_column_name(c) for c in raw.columns]
         standardized = _best_effort_standardize(raw)
 
@@ -170,6 +236,32 @@ def load_multiple_files(file_paths: list[str | Path]) -> pd.DataFrame:
             raise ValueError(f"Missing required columns in {path}: {missing}")
 
         year = _infer_year(standardized, path)
+        output_columns = REQUIRED_COLUMNS + [c for c in OPTIONAL_COLUMNS if c in standardized.columns]
+        standardized = standardized[output_columns].copy()
+        standardized["year"] = year
+        merged.append(standardized)
+
+    if not merged:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS + OPTIONAL_COLUMNS + ["year"])
+
+    return pd.concat(merged, ignore_index=True)
+
+
+def load_multiple_uploads(uploaded_files: list[tuple[str, bytes]]) -> pd.DataFrame:
+    """Load one or more uploaded CSV payloads without writing them to disk."""
+    merged: list[pd.DataFrame] = []
+
+    for file_name, payload in uploaded_files:
+        raw = _read_csv_bytes_with_fallback(payload)
+        raw = _expand_single_column_delimited(raw)
+        raw.columns = [_normalize_column_name(c) for c in raw.columns]
+        standardized = _best_effort_standardize(raw)
+
+        missing = [c for c in REQUIRED_COLUMNS if c not in standardized.columns]
+        if missing:
+            raise ValueError(f"Missing required columns in {file_name}: {missing}")
+
+        year = _infer_year(standardized, Path(file_name))
         output_columns = REQUIRED_COLUMNS + [c for c in OPTIONAL_COLUMNS if c in standardized.columns]
         standardized = standardized[output_columns].copy()
         standardized["year"] = year
