@@ -1,4 +1,4 @@
-"""Utilities for loading TTC bus delay data for 2023 and 2024."""
+"""Utilities for loading TTC bus delay data (2023-focused)."""
 
 from __future__ import annotations
 
@@ -47,6 +47,7 @@ COLUMN_ALIASES: Dict[str, str] = {
 
 REQUIRED_COLUMNS = ["date", "time", "route", "location", "incident", "min_delay", "min_gap"]
 OPTIONAL_COLUMNS = ["day", "direction", "vehicle"]
+TARGET_YEAR = 2023
 
 
 def _normalize_column_name(col: str) -> str:
@@ -192,7 +193,7 @@ def _read_csv_with_fallback(file_path: str | Path) -> pd.DataFrame:
     """
     file_path = Path(file_path)
 
-    encodings = ("utf-8", "utf-8-sig", "cp1252", "latin1")
+    encodings = ("utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "cp1252", "latin1")
     separators: tuple[str | None, ...] = (None, ",", "\t", ";")
     attempted_errors: list[str] = []
 
@@ -233,7 +234,7 @@ def _read_csv_with_fallback(file_path: str | Path) -> pd.DataFrame:
 
 def _read_csv_bytes_with_fallback(payload: bytes) -> pd.DataFrame:
     """Read uploaded CSV bytes while handling encoding and parser issues."""
-    encodings = ("utf-8", "utf-8-sig", "cp1252", "latin1")
+    encodings = ("utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "cp1252", "latin1")
     separators: tuple[str | None, ...] = (None, ",", "\t", ";")
     attempted_errors: list[str] = []
 
@@ -273,19 +274,16 @@ def _read_csv_bytes_with_fallback(payload: bytes) -> pd.DataFrame:
 
 
 def load_and_merge_data(data_dir: str | Path) -> pd.DataFrame:
-    """Load TTC bus delay CSV files for 2023 and 2024 and combine them."""
+    """Load TTC bus delay CSV file for 2023."""
     data_dir = Path(data_dir)
     file_2023 = data_dir / "ttc_bus_delay_2023.csv"
-    file_2024 = data_dir / "ttc_bus_delay_2024.csv"
 
     df_2023 = load_year_data(file_2023, 2023)
-    df_2024 = load_year_data(file_2024, 2024)
-
-    return pd.concat([df_2023, df_2024], ignore_index=True)
+    return df_2023
 
 
 def load_multiple_files(file_paths: list[str | Path]) -> pd.DataFrame:
-    """Load one or more TTC delay CSV files and infer year from file content/name."""
+    """Load TTC delay CSV files and keep only rows/files inferred as 2023."""
     merged: list[pd.DataFrame] = []
 
     for file_path in file_paths:
@@ -300,6 +298,8 @@ def load_multiple_files(file_paths: list[str | Path]) -> pd.DataFrame:
             raise ValueError(f"Missing required columns in {path}: {missing}")
 
         year = _infer_year(standardized, path)
+        if year != TARGET_YEAR:
+            continue
         output_columns = REQUIRED_COLUMNS + [c for c in OPTIONAL_COLUMNS if c in standardized.columns]
         standardized = standardized[output_columns].copy()
         standardized["year"] = year
@@ -312,7 +312,7 @@ def load_multiple_files(file_paths: list[str | Path]) -> pd.DataFrame:
 
 
 def load_multiple_uploads(uploaded_files: list[tuple[str, bytes]]) -> pd.DataFrame:
-    """Load one or more uploaded CSV payloads without writing them to disk."""
+    """Load uploaded CSV payloads without writing them to disk (2023 only)."""
     merged: list[pd.DataFrame] = []
 
     for file_name, payload in uploaded_files:
@@ -326,6 +326,8 @@ def load_multiple_uploads(uploaded_files: list[tuple[str, bytes]]) -> pd.DataFra
             raise ValueError(f"Missing required columns in {file_name}: {missing}")
 
         year = _infer_year(standardized, Path(file_name))
+        if year != TARGET_YEAR:
+            continue
         output_columns = REQUIRED_COLUMNS + [c for c in OPTIONAL_COLUMNS if c in standardized.columns]
         standardized = standardized[output_columns].copy()
         standardized["year"] = year

@@ -10,7 +10,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
 
-from src.data_loader import load_and_merge_data, load_multiple_uploads
+from src.data_loader import TARGET_YEAR, load_and_merge_data, load_multiple_uploads
 from src.eda_analysis import comparison_analysis, spatial_analysis
 from src.preprocessing import clean_and_transform
 from src.visualization import (
@@ -125,13 +125,13 @@ def render_combined_dashboard(df):
 
 def load_data_from_ui():
     st.sidebar.header("Dataset Source")
-    source = st.sidebar.radio("Choose dataset", ["Default 2023 + 2024 files", "Upload CSV file(s)"])
+    source = st.sidebar.radio("Choose dataset", [f"Default {TARGET_YEAR} file", f"Upload CSV file(s) ({TARGET_YEAR} only)"])
 
-    if source == "Default 2023 + 2024 files":
+    if source == f"Default {TARGET_YEAR} file":
         return load_default_data()
 
     uploaded_files = st.sidebar.file_uploader(
-        "Upload one or more TTC delay CSV files",
+        f"Upload one or more TTC delay CSV files ({TARGET_YEAR} only)",
         type=["csv"],
         accept_multiple_files=True,
     )
@@ -151,7 +151,7 @@ def main():
     try:
         df = load_data_from_ui()
     except FileNotFoundError:
-        st.error("Default CSV files not found. Place files in ttc_delay_analytics/data/ or upload CSVs from the sidebar.")
+        st.error(f"Default CSV file not found. Place ttc_bus_delay_{TARGET_YEAR}.csv in ttc_delay_analytics/data/ or upload CSVs from the sidebar.")
         st.stop()
     except ValueError as exc:
         st.error(f"Unable to load selected dataset: {exc}")
