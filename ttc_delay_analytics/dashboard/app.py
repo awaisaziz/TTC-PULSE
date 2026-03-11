@@ -10,7 +10,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
 
-from src.data_loader import load_and_merge_data
+from src.data_loader import load_and_merge_data, load_multiple_files
 from src.eda_analysis import comparison_analysis, spatial_analysis
 from src.preprocessing import clean_and_transform
 from src.visualization import (
@@ -24,8 +24,23 @@ from src.visualization import (
 
 
 @st.cache_data
-def load_data():
+def load_default_data():
     raw = load_and_merge_data(ROOT / "data")
+    return clean_and_transform(raw)
+
+
+@st.cache_data
+def load_uploaded_data(file_names: tuple[str, ...], file_bytes: tuple[bytes, ...]):
+    data_dir = ROOT / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    temp_paths = []
+    for name, payload in zip(file_names, file_bytes):
+        path = data_dir / name
+        path.write_bytes(payload)
+        temp_paths.append(path)
+
+    raw = load_multiple_files(temp_paths)
     return clean_and_transform(raw)
 
 
@@ -52,7 +67,7 @@ def apply_filters(df):
     return filtered
 
 
-def overview_page(df):
+def render_overview(df):
     st.subheader("Overview")
     c1, c2 = st.columns(2)
     c1.metric("Total Delays", f"{len(df):,}")
@@ -70,46 +85,84 @@ def overview_page(df):
     i2.metric("Most common incident", str(top_incident.index[0]) if len(top_incident) else "N/A")
     i3.metric("Top hotspot", str(top_location.index[0]) if len(top_location) else "N/A")
 
-    if "direction" in df.columns:
-        st.caption("Direction breakdown")
-        st.dataframe(df.groupby("direction").size().reset_index(name="delay_count").sort_values("delay_count", ascending=False).head(10), use_container_width=True)
-
     st.plotly_chart(delay_distribution_histogram(df), use_container_width=True)
     st.plotly_chart(delay_vs_gap_scatter_plot(df), use_container_width=True)
 
 
-def temporal_page(df):
+def render_temporal(df):
     st.subheader("Temporal Analysis")
     st.plotly_chart(delays_by_hour_heatmap(df), use_container_width=True)
     st.plotly_chart(delay_trends_by_month(df), use_container_width=True)
 
 
-def route_page(df):
+def render_route(df):
     st.subheader("Route Reliability")
     st.plotly_chart(top_routes_bar_chart(df), use_container_width=True)
 
 
-def incident_page(df):
+def render_incident(df):
     st.subheader("Incident Causes")
     st.plotly_chart(incident_type_bar_chart(df), use_container_width=True)
 
 
-def location_page(df):
+def render_location(df):
     st.subheader("Location Hotspots")
     hotspots = spatial_analysis(df)
     st.dataframe(hotspots, use_container_width=True)
 
 
+def render_combined_dashboard(df):
+    st.subheader("Combined Live Dashboard")
+    options = {
+        "Overview": render_overview,
+        "Temporal analysis": render_temporal,
+        "Route reliability": render_route,
+        "Incident causes": render_incident,
+        "Location hotspots": render_location,
+    }
+    selected_sections = st.multiselect(
+        "Select analyses to display",
+        list(options.keys()),
+        default=["Overview", "Temporal analysis"],
+    )
+
+    for section in selected_sections:
+        st.markdown("---")
+        options[section](df)
+
+
+def load_data_from_ui():
+    st.sidebar.header("Dataset Source")
+    source = st.sidebar.radio("Choose dataset", ["Default 2023 + 2024 files", "Upload CSV file(s)"])
+
+    if source == "Default 2023 + 2024 files":
+        return load_default_data()
+
+    uploaded_files = st.sidebar.file_uploader(
+        "Upload one or more TTC delay CSV files",
+        type=["csv"],
+        accept_multiple_files=True,
+    )
+    if not uploaded_files:
+        st.info("Upload at least one CSV file to continue.")
+        st.stop()
+
+    names = tuple(uploaded_file.name for uploaded_file in uploaded_files)
+    payloads = tuple(uploaded_file.getvalue() for uploaded_file in uploaded_files)
+    return load_uploaded_data(names, payloads)
+
+
 def main():
     st.set_page_config(page_title="TTC Delay Analytics", layout="wide")
-    st.title("TTC Bus Delay Analytics Dashboard (2023 vs 2024)")
+    st.title("TTC Bus Delay Analytics Dashboard")
 
     try:
-        df = load_data()
+        df = load_data_from_ui()
     except FileNotFoundError:
-        st.error(
-            "CSV files not found. Place ttc_bus_delay_2023.csv and ttc_bus_delay_2024.csv in ttc_delay_analytics/data/."
-        )
+        st.error("Default CSV files not found. Place files in ttc_delay_analytics/data/ or upload CSVs from the sidebar.")
+        st.stop()
+    except ValueError as exc:
+        st.error(f"Unable to load selected dataset: {exc}")
         st.stop()
 
     filtered_df = apply_filters(df)
@@ -119,19 +172,28 @@ def main():
 
     page = st.sidebar.radio(
         "Page",
-        ["Overview", "Temporal analysis", "Route reliability", "Incident causes", "Location hotspots"],
+        [
+            "Overview",
+            "Temporal analysis",
+            "Route reliability",
+            "Incident causes",
+            "Location hotspots",
+            "Combined dashboard",
+        ],
     )
 
     if page == "Overview":
-        overview_page(filtered_df)
+        render_overview(filtered_df)
     elif page == "Temporal analysis":
-        temporal_page(filtered_df)
+        render_temporal(filtered_df)
     elif page == "Route reliability":
-        route_page(filtered_df)
+        render_route(filtered_df)
     elif page == "Incident causes":
-        incident_page(filtered_df)
+        render_incident(filtered_df)
+    elif page == "Location hotspots":
+        render_location(filtered_df)
     else:
-        location_page(filtered_df)
+        render_combined_dashboard(filtered_df)
 
 
 if __name__ == "__main__":
