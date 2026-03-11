@@ -61,6 +61,19 @@ def overview_page(df):
     summary = comparison_analysis(df)["year_summary"]
     st.dataframe(summary, use_container_width=True)
 
+    top_route = df.groupby("route").size().sort_values(ascending=False).head(1)
+    top_incident = df.groupby("incident").size().sort_values(ascending=False).head(1)
+    top_location = df.groupby("location").size().sort_values(ascending=False).head(1)
+
+    i1, i2, i3 = st.columns(3)
+    i1.metric("Most impacted route", str(top_route.index[0]) if len(top_route) else "N/A")
+    i2.metric("Most common incident", str(top_incident.index[0]) if len(top_incident) else "N/A")
+    i3.metric("Top hotspot", str(top_location.index[0]) if len(top_location) else "N/A")
+
+    if "direction" in df.columns:
+        st.caption("Direction breakdown")
+        st.dataframe(df.groupby("direction").size().reset_index(name="delay_count").sort_values("delay_count", ascending=False).head(10), use_container_width=True)
+
     st.plotly_chart(delay_distribution_histogram(df), use_container_width=True)
     st.plotly_chart(delay_vs_gap_scatter_plot(df), use_container_width=True)
 
