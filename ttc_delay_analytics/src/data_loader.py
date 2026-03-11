@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
+import re
 from typing import Dict
 
 import pandas as pd
@@ -33,6 +34,14 @@ COLUMN_ALIASES: Dict[str, str] = {
     "gap": "min_gap",
     "direction": "direction",
     "vehicle": "vehicle",
+    "route_name": "route",
+    "route_no": "route",
+    "route_num": "route",
+    "time_of_day": "time",
+    "location_name": "location",
+    "incident_description": "incident",
+    "delay_minutes": "min_delay",
+    "gap_minutes": "min_gap",
 }
 
 
@@ -42,7 +51,17 @@ OPTIONAL_COLUMNS = ["day", "direction", "vehicle"]
 
 def _normalize_column_name(col: str) -> str:
     """Normalize column names into snake_case and map aliases."""
-    normalized = col.strip().strip('"').lower().replace(" ", "_")
+    normalized = (
+        col.strip()
+        .strip('"')
+        .replace("\ufeff", "")
+        .replace("\u200b", "")
+        .replace("/", "_")
+        .replace("-", "_")
+        .lower()
+    )
+    normalized = re.sub(r"[^a-z0-9_]+", "_", normalized)
+    normalized = re.sub(r"_+", "_", normalized).strip("_")
     return COLUMN_ALIASES.get(normalized, normalized)
 
 
@@ -52,7 +71,7 @@ def _expand_single_column_delimited(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     only_col = str(df.columns[0])
-    delimiter = next((d for d in ("\t", ";", ",") if d in only_col), None)
+    delimiter = next((d for d in ("\t", ";", ",", "|") if d in only_col), None)
     if delimiter is None:
         return df
 
@@ -75,6 +94,11 @@ def _best_effort_standardize(df: pd.DataFrame) -> pd.DataFrame:
     if "date" in df.columns:
         standardized["date"] = df["date"]
 
+    if "date" not in df.columns:
+        date_like_col = next((c for c in df.columns if "date" in c), None)
+        if date_like_col is not None:
+            standardized["date"] = df[date_like_col]
+
     # Some TTC exports provide full timestamp instead of separate date/time columns.
     timestamp_col = next((c for c in ("datetime", "timestamp") if c in df.columns), None)
     if "time" not in df.columns and timestamp_col is not None:
@@ -85,10 +109,29 @@ def _best_effort_standardize(df: pd.DataFrame) -> pd.DataFrame:
 
     if "time" in df.columns:
         standardized["time"] = df["time"]
+    elif "date" in standardized.columns:
+        parsed = pd.to_datetime(standardized["date"], errors="coerce")
+        standardized["time"] = parsed.dt.strftime("%H:%M")
+        standardized["date"] = parsed.dt.date
 
     for col in ("route", "location", "incident", "min_delay", "min_gap"):
         if col in df.columns:
             standardized[col] = df[col]
+
+    # Fallback for unexpected variants not explicitly aliased.
+    fuzzy_candidates = {
+        "route": ("route", "line"),
+        "location": ("location", "intersection", "stop"),
+        "incident": ("incident", "reason", "cause"),
+        "min_delay": ("delay",),
+        "min_gap": ("gap",),
+    }
+    for target, patterns in fuzzy_candidates.items():
+        if target in standardized.columns:
+            continue
+        match = next((c for c in df.columns if any(p in c for p in patterns)), None)
+        if match is not None:
+            standardized[target] = df[match]
 
     if "min_gap" not in standardized.columns and "min_delay" in standardized.columns:
         standardized["min_gap"] = standardized["min_delay"]
