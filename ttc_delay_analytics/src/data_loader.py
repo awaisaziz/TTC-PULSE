@@ -51,6 +51,8 @@ OPTIONAL_COLUMNS = ["day", "direction", "vehicle"]
 
 def _normalize_column_name(col: str) -> str:
     """Normalize column names into snake_case and map aliases."""
+<<<<<<< ours
+<<<<<<< ours
     normalized = (
         col.strip()
         .strip('"')
@@ -63,6 +65,38 @@ def _normalize_column_name(col: str) -> str:
     normalized = re.sub(r"[^a-z0-9_]+", "_", normalized)
     normalized = re.sub(r"_+", "_", normalized).strip("_")
     return COLUMN_ALIASES.get(normalized, normalized)
+=======
+=======
+>>>>>>> theirs
+    normalized = col.strip().strip('"').lower().replace(" ", "_")
+    normalized = re.sub(r"[^a-z0-9_]", "_", normalized)
+    normalized = re.sub(r"_+", "_", normalized).strip("_")
+
+    if normalized in COLUMN_ALIASES:
+        return COLUMN_ALIASES[normalized]
+
+    tokenized = normalized.replace("_", "")
+    heuristic_aliases = {
+        "date": "date",
+        "time": "time",
+        "route": "route",
+        "location": "location",
+        "incident": "incident",
+        "mindelay": "min_delay",
+        "mingap": "min_gap",
+        "direction": "direction",
+        "vehicle": "vehicle",
+        "day": "day",
+    }
+    for token, canonical in heuristic_aliases.items():
+        if token in tokenized:
+            return canonical
+
+    return normalized
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 
 
 def _expand_single_column_delimited(df: pd.DataFrame) -> pd.DataFrame:
