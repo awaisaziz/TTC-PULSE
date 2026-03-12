@@ -74,25 +74,33 @@ def _download_resource_csv(resource: dict[str, Any], target: Path) -> None:
 
 
 def fetch_ttc_delay_csvs(output_dir: str | Path) -> None:
-    """Download 2023 and 2024 TTC bus delay CSV files into output_dir."""
+    """Download TTC bus delay datasets for 2014-2024 as CSV files into output_dir."""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     package = _get_json(PACKAGE_URL, params={"id": "ttc-bus-delay-data"}, timeout=30)
     resources = package["result"]["resources"]
+    years = list(range(2014, 2025))
+    downloaded_years: set[int] = set()
 
     for resource in resources:
         name = (resource.get("name") or "").lower()
-
-        if "2023" in name:
-            target = output_dir / "ttc_bus_delay_2023.csv"
-        elif "2024" in name:
-            target = output_dir / "ttc_bus_delay_2024.csv"
-        else:
+        matching_year = next(
+            (year for year in years if str(year) in name and year not in downloaded_years),
+            None,
+        )
+        if matching_year is None:
             continue
+
+        target = output_dir / f"ttc_bus_delay_{matching_year}.csv"
 
         _download_resource_csv(resource, target)
         print(f"Downloaded full dataset: {target}")
+        downloaded_years.add(matching_year)
+
+    missing_years = [year for year in years if year not in downloaded_years]
+    if missing_years:
+        print(f"Warning: no matching resource found for year(s): {missing_years}")
 
 
 if __name__ == "__main__":
