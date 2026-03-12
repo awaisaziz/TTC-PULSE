@@ -92,7 +92,7 @@ def fetch_ttc_delay_csvs(output_dir: str | Path) -> None:
         if matching_year is None:
             continue
 
-        target = output_dir / f"ttc_bus_delay_{matching_year}.csv"
+        target = output_dir / f"ttc_bus_delay_{matching_year}.xlsx"
 
         _download_resource_csv(resource, target)
         print(f"Downloaded full dataset: {target}")
