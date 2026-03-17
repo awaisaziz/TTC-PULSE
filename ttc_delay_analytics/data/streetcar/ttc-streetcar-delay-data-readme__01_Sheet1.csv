@@ -1,0 +1,16 @@
+Field Name,Description,Example
+Report Date,The date (YYYY/MM/DD) when the delay-causing incident occurred,2017-06-20 00:00:00
+Route,The number of the streetcar route,51
+Time,The time (hh:mm:ss AM/PM) when the delay-causing incident occurred,00:35:00
+Day,The name of the day,Monday
+Location,The location of the delay-causing incident,York Mills Station
+Incident,The description of the delay-causing incident,Mechanical
+Min Delay,"The delay, in minutes, to the schedule for the following streetcar",10
+Min Gap,"The total scheduled time, in minutes, from the streetcar ahead of the following streetcar",20
+Direction,"The direction of the bus route where B,b or BW indicates both ways. (On an east west route, it includes both east and west)                                           NB - northbound, 
+SB - southbound, 
+EB - eastbound, 
+WB - westbound
+
+The direction is not case sensitive",N
+Vehicle,Vehicle number,1057
