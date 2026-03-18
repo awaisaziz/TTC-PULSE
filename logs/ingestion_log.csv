@@ -1,0 +1,46 @@
+run_utc,step,status,row_count,output_path,details
+2026-03-17T20:00:28Z,project_setup,SUCCESS,0,data/ttc_pulse.duckdb,Project structure and DuckDB file ensured.
+2026-03-17T20:00:28Z,ingest_bus,SUCCESS,100,raw/bus/raw_bus_delay_events_registry.parquet,registered_files=100
+2026-03-17T20:00:29Z,ingest_subway,SUCCESS,61,raw/subway/raw_subway_delay_events_registry.parquet,registered_files=61
+2026-03-17T20:00:30Z,ingest_gtfs,SUCCESS,8,raw/gtfs/raw_gtfs_static_files_registry.parquet,registered_files=8
+2026-03-17T20:00:31Z,register_gtfsrt_snapshots,SUCCESS,0,raw/gtfsrt/raw_gtfsrt_alert_snapshots_registry.parquet,registered_files=0
+2026-03-17T20:00:36Z,build_bronze_bus,SUCCESS,776435,bronze/bronze_bus_events.parquet,source_files=100
+2026-03-17T20:00:39Z,build_bronze_subway,SUCCESS,250558,bronze/bronze_subway_events.parquet,source_files=61
+2026-03-17T20:00:39Z,build_bronze_gtfs_agency,SUCCESS,1,bronze/bronze_gtfs_agency.parquet,source_file=agency.csv
+2026-03-17T20:00:39Z,build_bronze_gtfs_calendar,SUCCESS,8,bronze/bronze_gtfs_calendar.parquet,source_file=calendar.csv
+2026-03-17T20:00:39Z,build_bronze_gtfs_calendar_dates,SUCCESS,7,bronze/bronze_gtfs_calendar_dates.parquet,source_file=calendar_dates.csv
+2026-03-17T20:00:39Z,build_bronze_gtfs_routes,SUCCESS,229,bronze/bronze_gtfs_routes.parquet,source_file=routes.csv
+2026-03-17T20:00:44Z,build_bronze_gtfs_shapes,SUCCESS,1025672,bronze/bronze_gtfs_shapes.parquet,source_file=shapes.csv
+2026-03-17T20:01:12Z,build_bronze_gtfs_stop_times,SUCCESS,4249149,bronze/bronze_gtfs_stop_times.parquet,source_file=stop_times.csv
+2026-03-17T20:01:12Z,build_bronze_gtfs_stops,SUCCESS,9417,bronze/bronze_gtfs_stops.parquet,source_file=stops.csv
+2026-03-17T20:01:13Z,build_bronze_gtfs_trips,SUCCESS,133665,bronze/bronze_gtfs_trips.parquet,source_file=trips.csv
+2026-03-17T20:01:13Z,build_bronze_gtfsrt_alert_entities,SUCCESS,0,bronze/bronze_gtfsrt_alert_entities.parquet,schema_ready_shell_only
+2026-03-17T20:19:45Z,normalize_bus,SUCCESS,776435,silver/silver_bus_events.parquet,Bus normalized to silver canonical model (route-first).
+2026-03-17T20:19:46Z,normalize_subway,SUCCESS,250558,silver/silver_subway_events.parquet,Subway normalized to silver canonical model (station-first).
+2026-03-17T20:19:47Z,build_gtfs_dimensions,SUCCESS,9654,dimensions,dim_route_gtfs=229; dim_stop_gtfs=9417; dim_service_gtfs=8
+2026-03-17T20:19:49Z,build_gtfs_bridge,SUCCESS,17824,bridge/bridge_route_direction_stop.parquet,Route-direction-stop GTFS bridge built.
+2026-03-17T20:19:49Z,build_route_alias,SUCCESS,1306,dimensions/dim_route_alias.parquet,Route aliases with match metadata built.
+2026-03-17T20:19:50Z,build_station_alias,SUCCESS,136273,dimensions/dim_station_alias.parquet,Station aliases with match metadata built.
+2026-03-17T20:19:51Z,build_incident_code_dim,SUCCESS,280,dimensions/dim_incident_code.parquet,Incident code dimension with dominant text mapping built.
+2026-03-17T20:19:52Z,build_review_tables,SUCCESS,136612,reviews,route_alias_review=1056;station_alias_review=135276;incident_code_review=280
+2026-03-17T20:20:28Z,build_fact_delay_events_norm,SUCCESS,11816005,silver/fact_delay_events_norm.parquet,Unified delay fact for bus (route-first) and subway (station-first).
+2026-03-17T20:21:43Z,normalize_gtfsrt_entities,SUCCESS,0,silver/silver_gtfsrt_alert_entities.parquet,GTFS-RT alert entities normalized for silver canonical schema.
+2026-03-17T20:21:47Z,build_fact_delay_events_norm,SUCCESS,1026993,silver/fact_delay_events_norm.parquet,Unified delay fact for bus (route-first) and subway (station-first).
+2026-03-17T20:21:47Z,build_fact_gtfsrt_alerts_norm,SUCCESS,0,silver/fact_gtfsrt_alerts_norm.parquet,Canonical GTFS-RT alert fact table built.
+2026-03-17T20:32:12Z,build_gold_delay_core,SUCCESS,1026993,gold/gold_delay_events_core.parquet,Gold delay core and deferred spatial hotspot scaffold built.
+2026-03-17T20:32:12Z,build_gold_linkage_quality,SUCCESS,3,gold/gold_linkage_quality.parquet,Gold linkage quality mart built.
+2026-03-17T20:32:13Z,build_gold_route_metrics,SUCCESS,35882,gold/gold_route_time_metrics.parquet,Route x time reliability metrics with weighted composite score built.
+2026-03-17T20:32:14Z,build_gold_station_metrics,SUCCESS,224282,gold/gold_station_time_metrics.parquet,Station x time reliability metrics with weighted composite score built.
+2026-03-17T20:32:15Z,build_gold_time_metrics,SUCCESS,337,gold/gold_time_reliability.parquet,Weekday x hour reliability mart with weighted composite score built.
+2026-03-17T20:32:16Z,build_gold_rankings,SUCCESS,100618,gold/gold_top_offender_ranking.parquet,Top offender ranking mart built from route/station reliability composite scores.
+2026-03-17T20:32:16Z,poll_service_alerts,SUCCESS,1,alerts/raw_snapshots/gtfsrt_alert_snapshot_stub_20260317T203216Z.json,Generated stub snapshot because URL was not configured.
+2026-03-17T20:32:16Z,register_gtfsrt_snapshots,SUCCESS,1,raw/gtfsrt/raw_gtfsrt_alert_snapshots_registry.parquet,registered_files=1
+2026-03-17T20:32:17Z,parse_service_alerts,SUCCESS,0,bronze/bronze_gtfsrt_alert_entities.parquet,parsed_snapshots=1; parsed_entities=0
+2026-03-17T20:32:17Z,normalize_gtfsrt_entities,SUCCESS,0,silver/silver_gtfsrt_alert_entities.parquet,GTFS-RT alert entities normalized for silver canonical schema.
+2026-03-17T20:32:18Z,build_fact_gtfsrt_alerts_norm,SUCCESS,0,silver/fact_gtfsrt_alerts_norm.parquet,Canonical GTFS-RT alert fact table built.
+2026-03-17T20:32:18Z,build_gold_alert_validation,SUCCESS,0,gold/gold_alert_validation.parquet,Gold alert validation mart built.
+2026-03-17T21:13:45Z,build_gold_delay_core,SUCCESS,1026993,gold/gold_delay_events_core.parquet,Gold delay core and spatial hotspot built; spatial_rows=1077
+2026-03-17T21:13:45Z,parse_service_alerts,SUCCESS,0,bronze/bronze_gtfsrt_alert_entities.parquet,snapshots_scanned=1;sources_with_entities=0;parsed_entities=0;protobuf_parser=disabled
+2026-03-17T21:13:46Z,normalize_gtfsrt_entities,SUCCESS,0,silver/silver_gtfsrt_alert_entities.parquet,GTFS-RT alert entities normalized for silver canonical schema.
+2026-03-17T21:13:46Z,build_fact_gtfsrt_alerts_norm,SUCCESS,0,silver/fact_gtfsrt_alerts_norm.parquet,Canonical GTFS-RT alert fact table built.
+2026-03-17T21:13:47Z,build_gold_alert_validation,SUCCESS,1,gold/gold_alert_validation.parquet,Gold alert validation mart built with snapshot health coverage.

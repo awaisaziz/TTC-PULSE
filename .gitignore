@@ -1,0 +1,52 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local secrets
+.env
+.env.*
+.streamlit/
+.streamlit/secrets.toml
+
+# Local databases and logs
+*.duckdb
+*.sqlite
+logs/*.log
+
+# Generated pipeline artifacts (kept local)
+raw/**/*.parquet
+bronze/**/*.parquet
+silver/**/*.parquet
+dimensions/**/*.parquet
+bridge/**/*.parquet
+reviews/**/*.parquet
+gold/**/*.parquet
+
+# Generated registries and parsed snapshots
+raw/**/*.csv
+alerts/parsed/*.jsonl
+
+# Airflow runtime artifacts
+airflow/logs/
+airflow/.tmp/
+/.venv
+
+data/

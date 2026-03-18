@@ -1,0 +1,33 @@
+﻿version: 1
+name: schema_bus
+scope: mvp_step1
+source_registry_table: raw_bus_delay_events_registry
+bronze_table: bronze_bus_events
+notes:
+  - Row-preserving Bronze extraction using all-varchar ingest.
+  - Source files are immutable and tracked through checksum lineage.
+  - Streetcar is excluded from core MVP.
+lineage_columns:
+  - lineage_source_file
+  - lineage_source_row_number
+  - lineage_bronze_loaded_at_utc
+  - lineage_source_registry
+canonical_columns:
+  - canonical_name: event_datetime
+    aliases: [Report Date, Date, Incident Date]
+    type: timestamp
+  - canonical_name: route_id
+    aliases: [Route, Route Number, Line]
+    type: string
+  - canonical_name: direction
+    aliases: [Direction]
+    type: string
+  - canonical_name: delay_minutes
+    aliases: [Min Delay, Delay]
+    type: integer
+  - canonical_name: incident_code
+    aliases: [Code, Incident Code]
+    type: string
+  - canonical_name: incident_description
+    aliases: [Incident, Description]
+    type: string
