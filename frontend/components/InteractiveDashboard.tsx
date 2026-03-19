@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getDatasetDays, getDatasetMonths, getDatasetYears, getSummary, getTimeline } from "../lib/api";
-import { SummaryPoint, TimelineGranularity, TimelinePoint, VehicleType } from "../lib/types";
+import { getDatasetDays, getDatasetMonths, getDatasetYears, getSpatiotemporalMap, getSummary, getTimeline } from "../lib/api";
+import { SpatiotemporalMapPoint, SummaryPoint, TimelineGranularity, TimelinePoint, VehicleType } from "../lib/types";
+import { SpatiotemporalMap } from "./SpatiotemporalMap";
 import { TimelineBarChart } from "./TimelineBarChart";
 
 type Props = {
@@ -20,9 +21,11 @@ export function InteractiveDashboard({ vehicleFilter, title, subtitle }: Props) 
   const [days, setDays] = useState<number[]>([]);
   const [summary, setSummary] = useState<SummaryPoint[]>([]);
   const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
+  const [mapPoints, setMapPoints] = useState<SpatiotemporalMapPoint[]>([]);
   const [year, setYear] = useState<number | undefined>(undefined);
   const [month, setMonth] = useState<number | undefined>(undefined);
   const [day, setDay] = useState<number | undefined>(undefined);
+  const [mapHour, setMapHour] = useState<number | undefined>(8);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,11 +99,16 @@ export function InteractiveDashboard({ vehicleFilter, title, subtitle }: Props) 
 
     const granularity: TimelineGranularity = day ? "hour" : month ? "day" : "month";
 
-    Promise.all([getSummary(year, month, day, vehicleFilter), getTimeline(granularity, year, month, day, vehicleFilter)])
-      .then(([summaryData, timelineData]) => {
+    Promise.all([
+      getSummary(year, month, day, vehicleFilter),
+      getTimeline(granularity, year, month, day, vehicleFilter),
+      getSpatiotemporalMap(vehicleFilter, mapHour, 3500),
+    ])
+      .then(([summaryData, timelineData, spatialData]) => {
         if (cancelled) return;
         setSummary(summaryData);
         setTimeline(timelineData);
+        setMapPoints(spatialData);
       })
       .catch(() => {
         if (!cancelled) {
@@ -114,7 +122,7 @@ export function InteractiveDashboard({ vehicleFilter, title, subtitle }: Props) 
     return () => {
       cancelled = true;
     };
-  }, [year, month, day, vehicleFilter]);
+  }, [year, month, day, vehicleFilter, mapHour]);
 
   const summaryByVehicle = useMemo(() => {
     const map = new Map<string, SummaryPoint>();
@@ -193,6 +201,20 @@ export function InteractiveDashboard({ vehicleFilter, title, subtitle }: Props) 
         </section>
       )}
 
+      <section className="card">
+        <h3>GTFS Map Hour (Spatio-Temporal)</h3>
+        <div className="pill-row">
+          <button className={`pill ${mapHour === undefined ? "active" : ""}`} onClick={() => setMapHour(undefined)} type="button">
+            All hours
+          </button>
+          {Array.from({ length: 24 }, (_, h) => (
+            <button key={`hour-${h}`} className={`pill ${mapHour === h ? "active" : ""}`} onClick={() => setMapHour(h)} type="button">
+              {String(h).padStart(2, "0")}:00
+            </button>
+          ))}
+        </div>
+      </section>
+
       {error && <div className="error">{error}</div>}
       {loading && <div className="loading">Loading analytics...</div>}
 
@@ -213,6 +235,12 @@ export function InteractiveDashboard({ vehicleFilter, title, subtitle }: Props) 
       </section>
 
       <TimelineBarChart data={timeline} title={timelineTitle} />
+      <div style={{ marginTop: 16 }}>
+        <SpatiotemporalMap
+          data={mapPoints}
+          title={`TTC Spatio-Temporal Map (${mapHour === undefined ? "All hours" : `${String(mapHour).padStart(2, "0")}:00`})`}
+        />
+      </div>
     </main>
   );
 }

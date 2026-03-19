@@ -66,12 +66,16 @@ class DatasetClassifierAgent:
     def classify(self, file_path: Path, columns: list[str]) -> str:
         lowered = [c.strip().lower() for c in columns]
         path_str = str(file_path).lower()
-        if "subway" in path_str or "station" in lowered or "code" in lowered:
-            return "subway"
-        if "bus" in path_str or "route" in lowered:
-            return "bus"
         if "gtfs" in path_str or any(col in lowered for col in ["trip_id", "stop_id", "shape_id", "service_id"]):
             return "gtfs"
+        if "bus" in path_str:
+            return "bus"
+        if "subway" in path_str:
+            return "subway"
+        if "station" in lowered or "line" in lowered:
+            return "subway"
+        if "route" in lowered:
+            return "bus"
         return "unknown"
 
 
@@ -94,19 +98,39 @@ class SubwayLookupAgent:
 
         chosen = sorted(candidates)[0]
         df = pd.read_csv(chosen, dtype=str, encoding="utf-8-sig")
-        df.columns = [c.strip().lower() for c in df.columns]
+        original_cols = list(df.columns)
+        lower_cols = [c.strip().lower() for c in original_cols]
 
-        code_col = "code" if "code" in df.columns else df.columns[0]
-        desc_col = "description" if "description" in df.columns else ("desc" if "desc" in df.columns else df.columns[-1])
+        lookup: dict[str, str] = {}
+        paired_columns: list[tuple[str, str]] = []
 
-        lookup = (
-            df[[code_col, desc_col]]
-            .dropna(how="any")
-            .assign(**{code_col: lambda d: d[code_col].astype(str).str.strip()})
-            .drop_duplicates(subset=[code_col])
-            .set_index(code_col)[desc_col]
-            .to_dict()
-        )
+        if any("code" in c for c in lower_cols):
+            for idx, col in enumerate(lower_cols):
+                if "code" in col and idx + 1 < len(lower_cols):
+                    next_col = lower_cols[idx + 1]
+                    if "desc" in next_col:
+                        paired_columns.append((original_cols[idx], original_cols[idx + 1]))
+
+        if not paired_columns and len(original_cols) >= 8:
+            paired_columns = [(original_cols[2], original_cols[3]), (original_cols[6], original_cols[7])]
+
+        for code_col, desc_col in paired_columns:
+            subset = (
+                df[[code_col, desc_col]]
+                .dropna(how="any")
+                .rename(columns={code_col: "code", desc_col: "description"})
+            )
+            subset["code"] = subset["code"].astype(str).str.strip()
+            subset["description"] = subset["description"].astype(str).str.strip()
+            subset = subset[
+                (subset["code"] != "")
+                & (subset["description"] != "")
+                & (~subset["code"].str.contains("code", case=False, na=False))
+                & (~subset["description"].str.contains("description", case=False, na=False))
+            ]
+            for row in subset.itertuples(index=False):
+                lookup[row.code] = row.description
+
         self.lookup = lookup
         self.logger.info("Loaded %s subway code mappings from %s", len(lookup), chosen)
         return lookup
@@ -126,7 +150,22 @@ class TransformerAgent:
                 rename_map[col] = canonical
         out = df.rename(columns=rename_map).copy()
         out.columns = [c.strip() for c in out.columns]
+        duplicated = out.columns[out.columns.duplicated()].unique()
+        for col in duplicated:
+            matching = out.loc[:, out.columns == col]
+            out[col] = matching.bfill(axis=1).iloc[:, 0]
+        if len(duplicated) > 0:
+            out = out.loc[:, ~out.columns.duplicated(keep="last")]
         return out
+
+    @staticmethod
+    def _series_or_default(df: pd.DataFrame, column: str, default: pd.Series) -> pd.Series:
+        if column not in df.columns:
+            return default
+        raw = df[column]
+        if isinstance(raw, pd.DataFrame):
+            return raw.bfill(axis=1).iloc[:, 0]
+        return raw
 
     @staticmethod
     def _build_timestamp(df: pd.DataFrame) -> pd.Series:
@@ -158,14 +197,26 @@ class TransformerAgent:
 
         out = pd.DataFrame(index=ndf.index)
         out["timestamp"] = self._build_timestamp(ndf)
-        out["route_id"] = ndf.get("route_id", pd.Series([pd.NA] * len(ndf), index=ndf.index)).astype("string")
+        out["route_id"] = self._series_or_default(
+            ndf,
+            "route_id",
+            pd.Series([pd.NA] * len(ndf), index=ndf.index),
+        ).astype("string")
         out["vehicle_type"] = self._vehicle_type(dataset_type, ndf).astype("string")
 
-        location_series = ndf.get("location", pd.Series([pd.NA] * len(ndf), index=ndf.index)).astype("string")
+        location_series = self._series_or_default(
+            ndf,
+            "location",
+            pd.Series([pd.NA] * len(ndf), index=ndf.index),
+        ).astype("string")
         location_series = location_series.fillna("unknown").replace({"": "unknown", "nan": "unknown", "None": "unknown"})
         out["location"] = location_series
 
-        code_series = ndf.get("incident_code", pd.Series([pd.NA] * len(ndf), index=ndf.index)).astype("string")
+        code_series = self._series_or_default(
+            ndf,
+            "incident_code",
+            pd.Series([pd.NA] * len(ndf), index=ndf.index),
+        ).astype("string")
         out["incident_code"] = code_series
 
         if dataset_type == "subway":
@@ -173,8 +224,10 @@ class TransformerAgent:
         else:
             out["incident_desc"] = pd.Series([pd.NA] * len(ndf), index=ndf.index, dtype="string")
 
-        out["min_delay"] = self._safe_numeric(ndf.get("min_delay"), ndf.index)
-        out["min_gap"] = self._safe_numeric(ndf.get("min_gap"), ndf.index)
+        min_delay_series = self._series_or_default(ndf, "min_delay", pd.Series([pd.NA] * len(ndf), index=ndf.index))
+        min_gap_series = self._series_or_default(ndf, "min_gap", pd.Series([pd.NA] * len(ndf), index=ndf.index))
+        out["min_delay"] = self._safe_numeric(min_delay_series, ndf.index)
+        out["min_gap"] = self._safe_numeric(min_gap_series, ndf.index)
         out["source_file"] = source_file
 
         for col in CANONICAL_SCHEMA:
@@ -262,7 +315,10 @@ class MasterIngestionAgent:
 
                 cleaned = transformer.transform(df, dataset_type, rel)
                 output_path = self.processed_root / (file_path.stem + "_cleaned.csv")
-                cleaned.to_csv(output_path, index=False)
+                try:
+                    cleaned.to_csv(output_path, index=False)
+                except PermissionError:
+                    self.logger.warning("Could not write %s (file may be locked). Continuing.", output_path)
 
                 all_frames.append(cleaned)
                 results.append(IngestionResult(file_path, dataset_type, len(df), len(cleaned), "processed"))
@@ -272,12 +328,18 @@ class MasterIngestionAgent:
                 self.logger.exception("Failed processing %s", rel)
 
         unified = pd.concat(all_frames, ignore_index=True) if all_frames else pd.DataFrame(columns=CANONICAL_SCHEMA)
-
+        unified["timestamp"] = pd.to_datetime(unified["timestamp"], errors="coerce")
         unified["year"] = unified["timestamp"].dt.year.astype("Int64")
         unified["year"] = unified["year"].fillna(-1).astype(int)
 
-        unified.to_csv(self.processed_root / "all_data_cleaned.csv", index=False)
-        unified.to_parquet(self.parquet_root, index=False, partition_cols=["year", "vehicle_type"])
+        try:
+            unified.to_csv(self.processed_root / "all_data_cleaned.csv", index=False)
+        except PermissionError:
+            self.logger.warning("Could not write %s (file may be locked). Continuing.", self.processed_root / "all_data_cleaned.csv")
+        try:
+            unified.to_parquet(self.parquet_root, index=False, partition_cols=["year", "vehicle_type"])
+        except (ImportError, ValueError, PermissionError) as exc:
+            self.logger.warning("Skipping pandas parquet export: %s", exc)
 
         checks = self.verifier.verify(
             file_count=len(files),

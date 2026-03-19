@@ -53,3 +53,13 @@ export type TimelinePoint = {
   total_delay_minutes: number;
   avg_delay_minutes: number;
 };
+
+export type SpatiotemporalMapPoint = {
+  stop_id: string;
+  stop_name: string;
+  stop_lat: number;
+  stop_lon: number;
+  vehicle_type: "bus" | "subway";
+  hour_of_day: number;
+  trip_events: number;
+};

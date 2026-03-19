@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -34,6 +35,7 @@ def main() -> None:
     processed_root = ROOT_DIR / args.processed_root
     parquet_root = ROOT_DIR / args.parquet_root
     db_path = ROOT_DIR / args.db_path
+    os.chdir(ROOT_DIR)
 
     agent = MasterIngestionAgent(
         raw_root=raw_root,

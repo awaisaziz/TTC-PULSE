@@ -1,6 +1,7 @@
 import {
   HeatmapPoint,
   RouteSummary,
+  SpatiotemporalMapPoint,
   SummaryPoint,
   TimelineGranularity,
   TimelinePoint,
@@ -110,5 +111,17 @@ export async function getTimeline(
   if (day) params.set("day", String(day));
   if (vehicleType !== "all") params.set("vehicle_type", vehicleType);
   const payload = await fetchApi<{ data: TimelinePoint[] }>(`/timeline?${params.toString()}`);
+  return payload.data;
+}
+
+export async function getSpatiotemporalMap(
+  vehicleType: VehicleType = "all",
+  hour?: number,
+  limit = 3000,
+): Promise<SpatiotemporalMapPoint[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (vehicleType !== "all") params.set("vehicle_type", vehicleType);
+  if (hour !== undefined) params.set("hour", String(hour));
+  const payload = await fetchApi<{ data: SpatiotemporalMapPoint[] }>(`/spatiotemporal-map?${params.toString()}`);
   return payload.data;
 }

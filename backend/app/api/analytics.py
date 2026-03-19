@@ -208,6 +208,61 @@ def get_timeline(
         raise HTTPException(status_code=500, detail="Failed to fetch timeline") from exc
 
 
+@router.get("/spatiotemporal-map")
+def get_spatiotemporal_map(
+    vehicle_type: Annotated[str | None, Query(pattern="^(bus|subway)$")] = None,
+    hour: Annotated[int | None, Query(ge=0, le=23)] = None,
+    limit: Annotated[int, Query(ge=100, le=10000)] = 3000,
+    db: DuckDBClient = Depends(get_db_client),
+) -> dict:
+    started = time.perf_counter()
+    try:
+        sql = """
+        WITH stop_activity AS (
+            SELECT
+                s.stop_id,
+                s.stop_name,
+                TRY_CAST(s.stop_lat AS DOUBLE) AS stop_lat,
+                TRY_CAST(s.stop_lon AS DOUBLE) AS stop_lon,
+                CASE
+                    WHEN TRY_CAST(r.route_type AS INTEGER) = 3 THEN 'bus'
+                    WHEN TRY_CAST(r.route_type AS INTEGER) = 1 THEN 'subway'
+                    ELSE 'other'
+                END AS vehicle_type,
+                TRY_CAST(SUBSTR(COALESCE(NULLIF(st.departure_time, ''), '00:00:00'), 1, 2) AS INTEGER) % 24 AS hour_of_day
+            FROM stop_times st
+            INNER JOIN trips t ON st.trip_id = t.trip_id
+            INNER JOIN routes r ON t.route_id = r.route_id
+            INNER JOIN stops s ON st.stop_id = s.stop_id
+            WHERE TRY_CAST(r.route_type AS INTEGER) IN (1, 3)
+        )
+        SELECT
+            stop_id,
+            stop_name,
+            stop_lat,
+            stop_lon,
+            vehicle_type,
+            hour_of_day,
+            COUNT(*)::BIGINT AS trip_events
+        FROM stop_activity
+        WHERE stop_lat IS NOT NULL
+          AND stop_lon IS NOT NULL
+          AND (? IS NULL OR vehicle_type = ?)
+          AND (? IS NULL OR hour_of_day = ?)
+        GROUP BY stop_id, stop_name, stop_lat, stop_lon, vehicle_type, hour_of_day
+        ORDER BY trip_events DESC
+        LIMIT ?
+        """
+        params = [vehicle_type, vehicle_type, hour, hour, limit]
+        cache_key = f"spatiotemporal-map:v1:{vehicle_type or 'all'}:{hour if hour is not None else 'all'}:{limit}"
+        data = db.query(sql, params=params, cache_key=cache_key)
+        _timed_response("/spatiotemporal-map", started)
+        return {"count": len(data), "data": data}
+    except Exception as exc:
+        logger.exception("Failed to fetch spatiotemporal map")
+        raise HTTPException(status_code=500, detail="Failed to fetch spatiotemporal map") from exc
+
+
 @router.get("/routes")
 def get_routes(db: Annotated[DuckDBClient, Depends(get_db_client)]) -> dict:
     started = time.perf_counter()
