@@ -96,7 +96,11 @@ def get_stats(db: Annotated[DuckDBClient, Depends(get_db_client)]) -> dict:
 
 
 @router.get("/heatmap")
-def get_heatmap(db: Annotated[DuckDBClient, Depends(get_db_client)]) -> dict:
+def get_heatmap(
+    vehicle_type: Annotated[str | None, Query(pattern="^(bus|subway)$")] = None,
+    days: Annotated[int | None, Query(ge=1, le=365)] = None,
+    db: DuckDBClient = Depends(get_db_client),
+) -> dict:
     started = time.perf_counter()
     try:
         sql = """
@@ -107,10 +111,14 @@ def get_heatmap(db: Annotated[DuckDBClient, Depends(get_db_client)]) -> dict:
             COUNT(*)::BIGINT AS event_count,
             ROUND(AVG(min_delay), 2) AS avg_delay
         FROM delays
+        WHERE (? IS NULL OR vehicle_type = ?)
+          AND (? IS NULL OR service_date >= CURRENT_DATE - (? * INTERVAL '1 day'))
         GROUP BY day_of_week, hour_of_day, vehicle_type
         ORDER BY day_of_week, hour_of_day, vehicle_type
         """
-        data = db.query(sql, cache_key="heatmap:v1")
+        params = [vehicle_type, vehicle_type, days, days]
+        cache_key = f"heatmap:v2:{vehicle_type or 'all'}:{days or 'all'}"
+        data = db.query(sql, params=params, cache_key=cache_key)
         _timed_response("/heatmap", started)
         return {"count": len(data), "data": data}
     except Exception as exc:
@@ -122,6 +130,8 @@ def get_heatmap(db: Annotated[DuckDBClient, Depends(get_db_client)]) -> dict:
 def get_top_routes(
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
     min_events: Annotated[int, Query(ge=10, le=10000)] = 100,
+    vehicle_type: Annotated[str | None, Query(pattern="^(bus|subway)$")] = None,
+    days: Annotated[int | None, Query(ge=1, le=365)] = None,
     db: DuckDBClient = Depends(get_db_client),
 ) -> dict:
     started = time.perf_counter()
@@ -134,16 +144,52 @@ def get_top_routes(
             ROUND(AVG(min_delay), 2) AS avg_delay,
             ROUND(quantile_cont(min_delay, 0.90), 2) AS p90_delay
         FROM delays
+        WHERE (? IS NULL OR vehicle_type = ?)
+          AND (? IS NULL OR service_date >= CURRENT_DATE - (? * INTERVAL '1 day'))
         GROUP BY route_id, vehicle_type
         HAVING COUNT(*) >= ?
         ORDER BY avg_delay DESC, p90_delay DESC
         LIMIT ?
         """
-        params = [min_events, limit]
-        cache_key = f"top:{limit}:{min_events}"
+        params = [vehicle_type, vehicle_type, days, days, min_events, limit]
+        cache_key = f"top:v2:{limit}:{min_events}:{vehicle_type or 'all'}:{days or 'all'}"
         data = db.query(sql, params=params, cache_key=cache_key)
         _timed_response("/top-routes", started)
         return {"count": len(data), "data": data}
     except Exception as exc:
         logger.exception("Failed to fetch top routes")
         raise HTTPException(status_code=500, detail="Failed to fetch top routes") from exc
+
+
+@router.get("/delay-trend")
+def get_delay_trend(
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+    route_id: Annotated[str | None, Query(min_length=1, max_length=64)] = None,
+    vehicle_type: Annotated[str | None, Query(pattern="^(bus|subway)$")] = None,
+    db: DuckDBClient = Depends(get_db_client),
+) -> dict:
+    started = time.perf_counter()
+    try:
+        sql = """
+        SELECT
+            service_date,
+            route_id,
+            vehicle_type,
+            COUNT(*)::BIGINT AS event_count,
+            ROUND(AVG(min_delay), 2) AS avg_delay,
+            ROUND(quantile_cont(min_delay, 0.90), 2) AS p90_delay
+        FROM delays
+        WHERE service_date >= CURRENT_DATE - (? * INTERVAL '1 day')
+          AND (? IS NULL OR route_id = ?)
+          AND (? IS NULL OR vehicle_type = ?)
+        GROUP BY service_date, route_id, vehicle_type
+        ORDER BY service_date
+        """
+        params = [days, route_id, route_id, vehicle_type, vehicle_type]
+        cache_key = f"trend:v1:{days}:{route_id or 'all'}:{vehicle_type or 'all'}"
+        data = db.query(sql, params=params, cache_key=cache_key)
+        _timed_response("/delay-trend", started)
+        return {"count": len(data), "data": data}
+    except Exception as exc:
+        logger.exception("Failed to fetch delay trend")
+        raise HTTPException(status_code=500, detail="Failed to fetch delay trend") from exc
