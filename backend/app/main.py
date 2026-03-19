@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from dotenv import load_dotenv
 
 from app.api.analytics import router as analytics_router
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = BACKEND_DIR.parent
+load_dotenv(REPO_ROOT / ".env", override=False)
+load_dotenv(BACKEND_DIR / ".env", override=False)
 
 logging.basicConfig(
     level=logging.INFO,

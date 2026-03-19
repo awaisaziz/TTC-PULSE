@@ -135,7 +135,7 @@ class TransformerAgent:
         date_part = df.get("date", pd.Series([None] * len(df), index=df.index)).astype(str).str.strip()
         time_part = df.get("time", pd.Series(["00:00:00"] * len(df), index=df.index)).astype(str).str.strip()
         raw = (date_part + " " + time_part).str.strip()
-        ts = pd.to_datetime(raw, errors="coerce", infer_datetime_format=True)
+        ts = pd.to_datetime(raw, errors="coerce")
         return ts
 
     @staticmethod

@@ -49,20 +49,32 @@ class DuckDBClient:
         self._lock = threading.Lock()
         self.cache = TTLCache(ttl_seconds=int(os.getenv("CACHE_TTL_SECONDS", "30")))
 
+    def _resolve_db_path(self) -> Path:
+        configured = Path(self.db_path).expanduser()
+        if configured.is_absolute():
+            return configured
+
+        cwd_candidate = Path.cwd() / configured
+        if cwd_candidate.exists():
+            return cwd_candidate
+
+        repo_root = Path(__file__).resolve().parents[3]
+        return repo_root / configured
+
     def connect(self) -> duckdb.DuckDBPyConnection:
         if self._conn is not None:
             return self._conn
 
-        path = Path(self.db_path)
+        path = self._resolve_db_path()
         if not path.exists():
             raise FileNotFoundError(
-                f"DuckDB file not found at '{self.db_path}'. Run scripts/setup_duckdb.sh first."
+                f"DuckDB file not found at '{path}'. Run scripts/run_pipeline.py first."
             )
 
-        self._conn = duckdb.connect(self.db_path, read_only=True)
+        self._conn = duckdb.connect(str(path), read_only=True)
         self._conn.execute("PRAGMA threads=4;")
         self._conn.execute("PRAGMA enable_progress_bar=false;")
-        logger.info("Connected to DuckDB at %s", self.db_path)
+        logger.info("Connected to DuckDB at %s", path)
         return self._conn
 
     def query(self, sql: str, params: Sequence[Any] | None = None, cache_key: str | None = None) -> list[dict[str, Any]]:

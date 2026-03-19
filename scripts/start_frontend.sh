@@ -3,9 +3,18 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
 cd "$ROOT_DIR/frontend"
 
-npm install
+if [[ ! -d "node_modules" ]]; then
+  npm install
+fi
 
 export NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}"
 export FRONTEND_HOST="${FRONTEND_HOST:-0.0.0.0}"
