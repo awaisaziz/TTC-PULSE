@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.venv/
+venv/
+.env
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Data artifacts
+data/parquet/
+data/processed/
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
