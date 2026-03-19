@@ -5,7 +5,7 @@ Local-only analytics app with:
 - FastAPI backend (`backend/`)
 - Next.js frontend (`frontend/`)
 
-## What you asked for
+## Run locally (no deployment)
 
 Run locally without shell helper scripts:
 - Frontend: `npm run dev`
@@ -29,6 +29,19 @@ python dev_server.py
 
 Backend will run at `http://localhost:8000`.
 
+### If you saw the multiprocessing bootstrap error on Windows
+
+If you previously got this error while starting the backend:
+
+`An attempt has been made to start a new process before the current process has finished its bootstrapping phase`
+
+the backend entrypoint has now been fixed with a proper `if __name__ == "__main__":` guard and `freeze_support()`.
+Use the same command below to start the server:
+
+```bash
+python dev_server.py
+```
+
 Health check:
 
 ```bash
@@ -47,7 +60,19 @@ npm run dev
 
 Frontend runs at `http://localhost:3000`, dashboard at `http://localhost:3000/dashboard`.
 
-## 3) Data pipeline (if you need to rebuild DB)
+## 3) Run backend + frontend together (local development)
+
+Use two terminals:
+
+- Terminal 1 (backend): run the backend steps above.
+- Terminal 2 (frontend): run the frontend steps above.
+
+Then open:
+- App home: `http://localhost:3000`
+- Dashboard: `http://localhost:3000/dashboard`
+- API docs: `http://localhost:8000/docs`
+
+## 4) Data pipeline (if you need to rebuild DB)
 
 From repo root:
 
