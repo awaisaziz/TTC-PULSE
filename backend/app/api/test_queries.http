@@ -1,0 +1,23 @@
+### Health
+GET http://localhost:8000/health
+
+### Routes summary
+GET http://localhost:8000/routes
+
+### Delay by route
+GET http://localhost:8000/delay?route_id=1
+
+### Delay by route and vehicle type
+GET http://localhost:8000/delay?route_id=1&vehicle_type=bus
+
+### Global stats
+GET http://localhost:8000/stats
+
+### Heatmap aggregate
+GET http://localhost:8000/heatmap
+
+### Top routes defaults
+GET http://localhost:8000/top-routes
+
+### Top routes with filters
+GET http://localhost:8000/top-routes?limit=5&min_events=200
