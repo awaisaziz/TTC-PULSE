@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.analytics import router as analytics_router
@@ -13,7 +15,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 app = FastAPI(title="TTC Delay Analytics API", version="0.2.0")
+
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(analytics_router)
 
 

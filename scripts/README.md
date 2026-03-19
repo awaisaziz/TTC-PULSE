@@ -1,13 +1,15 @@
 # Scripts
 
-## DuckDB analytical layer
+- `run_pipeline.py` — Runs ingestion from `data/raw/` and initializes DuckDB analytical objects.
+- `start_backend.sh` — Boots backend venv, installs requirements, and starts FastAPI.
+- `start_frontend.sh` — Installs Node dependencies and starts Next.js dev server.
+- `setup_duckdb.sh` — DuckDB CLI setup path (manual SQL execution).
+- `verify_duckdb.sh` — DuckDB validation checks.
 
-- `setup_duckdb.sh` initializes `data/ttc.duckdb`, builds partitioned Parquet delays data, and creates analytical views.
-- `verify_duckdb.sh` runs connection, aggregation, partition-pruning, and basic runtime checks.
-
-Usage:
+## Usage
 
 ```bash
-scripts/setup_duckdb.sh
-scripts/verify_duckdb.sh
+python3 scripts/run_pipeline.py
+./scripts/start_backend.sh
+./scripts/start_frontend.sh
 ```
