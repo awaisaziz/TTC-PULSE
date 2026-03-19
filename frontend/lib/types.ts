@@ -31,3 +31,25 @@ export type HeatmapPoint = {
   event_count: number;
   avg_delay: number;
 };
+
+export type TimelineGranularity = "month" | "day" | "hour";
+
+export type SummaryPoint = {
+  vehicle_type: "bus" | "subway";
+  total_events: number;
+  total_delay_minutes: number;
+  total_delay_hours: number;
+  avg_delay_minutes: number;
+};
+
+export type TimelinePoint = {
+  year?: number;
+  month?: number;
+  day?: number;
+  bucket: number;
+  label: string;
+  vehicle_type: "bus" | "subway";
+  event_count: number;
+  total_delay_minutes: number;
+  avg_delay_minutes: number;
+};

@@ -1,13 +1,11 @@
-import Link from "next/link";
+﻿import { InteractiveDashboard } from "../components/InteractiveDashboard";
 
 export default function HomePage() {
   return (
-    <main className="page">
-      <div className="card">
-        <h1>TTC Delay Analytics</h1>
-        <p>Open the interactive dashboard to inspect route delays, rankings, and hourly heatmaps.</p>
-        <Link href="/dashboard">Go to dashboard →</Link>
-      </div>
-    </main>
+    <InteractiveDashboard
+      vehicleFilter="all"
+      title="TTC Delay Analytics"
+      subtitle="Bus and Subway delay statistics with interactive year, month, and day timeline analysis."
+    />
   );
 }

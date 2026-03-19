@@ -4,10 +4,10 @@ FastAPI service for TTC delay analytics.
 
 ## Run locally (Windows)
 
-```powershell
+```bash
 cd backend
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.venv\Scripts\activate
 pip install -r requirements.txt
 python dev_server.py
 ```
@@ -16,7 +16,7 @@ Backend URL: `http://localhost:8000`
 
 Health check:
 
-```powershell
+```bash
 curl "http://localhost:8000/health"
 ```
 
