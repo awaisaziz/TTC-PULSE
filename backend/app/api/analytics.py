@@ -27,13 +27,14 @@ def get_dataset_years(
         sql = """
         SELECT DISTINCT year
         FROM delays
-        WHERE (? IS NULL OR vehicle_type = ?)
+        WHERE year IS NOT NULL
+          AND (? IS NULL OR vehicle_type = ?)
         ORDER BY year
         """
         params = [vehicle_type, vehicle_type]
         cache_key = f"dataset-years:v1:{vehicle_type or 'all'}"
         data = db.query(sql, params=params, cache_key=cache_key)
-        years = [int(row["year"]) for row in data]
+        years = sorted({int(row["year"]) for row in data if row.get("year") is not None})
         _timed_response("/dataset-years", started)
         return {"count": len(years), "data": years}
     except Exception as exc:
@@ -439,3 +440,4 @@ def get_delay_trend(
     except Exception as exc:
         logger.exception("Failed to fetch delay trend")
         raise HTTPException(status_code=500, detail="Failed to fetch delay trend") from exc
+
